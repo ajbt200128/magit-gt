@@ -2,4 +2,5 @@
 
 Magit-GT is a Magit interface to [Graphite]
 
+[badge-license]: https://img.shields.io/badge/license-GPL_3-green.svg
 [Graphite]: https://graphite.dev
