@@ -81,12 +81,6 @@ Process output goes into a new section in the buffer returned by
     (apply #'magit-call-process
            magit-gt-executable
            (magit-gt-process-gt-arguments args))))
-(defun magit-gt-start-gt (input &rest args)
-  "Start a new `gt' process with INPUT and ARGS."
-  (run-hooks 'magit-pre-start-git-hook)
-  (let ((default-process-coding-system (magit--process-coding-system)))
-    (apply #'magit-start-process magit-gt-executable input
-           (magit-gt-process-gt-arguments args))))
 
 (defun magit-gt-run-gt (&rest args)
   "Call Gt synchronously in a separate process, and refresh.
@@ -105,6 +99,13 @@ Process output goes into a new section in the buffer returned by
     (prog1 (magit-gt-call-gt args)
       (magit-refresh))))
 
+(defun magit-gt-start-gt (input &rest args)
+  "Start a new `gt' process with INPUT and ARGS."
+  (run-hooks 'magit-pre-start-git-hook)
+  (let ((default-process-coding-system (magit--process-coding-system)))
+    (apply #'magit-start-process magit-gt-executable input
+           (magit-gt-process-gt-arguments args))))
+
 (defun magit-gt-run-gt-async (&rest args)
   "Run `gt' asynchronously with ARGS."
   (magit-msg "Running %s %s" magit-gt-executable
@@ -118,10 +119,7 @@ Process output goes into a new section in the buffer returned by
   (magit--record-separated-gitdir)
   (magit-with-editor (magit-gt-run-gt-async args)))
 
-(defun magit-gt-arguments (&rest filters)
-  "Return a list of arguments for `magit-gt' with FILTERS."
-  (seq-filter (##and (member % filters) %)
-              (transient-args 'magit-gt)))
+
 
 
 (defun magit-gt-insert (&rest args)
@@ -203,6 +201,7 @@ newline, return an empty string."
 (defclass magit-gt--suffix (transient-suffix)
   ())
 
+
 (cl-defmethod transient-format-description ((obj magit-gt--suffix))
   (let ((value (delq nil (mapcar #'transient-infix-value transient--suffixes))))
     (replace-regexp-in-string
@@ -218,7 +217,12 @@ newline, return an empty string."
                             (split-string (substring match 1 -1) "|"))
                           (propertize "|" 'face 'transient-inactive-argument))))
      (cl-call-next-method obj))))
-
+;; Macros
+(defmacro magit-gt-args (args)
+  `(defun ,(intern (format "magit-gt-%s-arguments" args)) (&rest filters)
+     ,(format "Return a list of arguments for `magit-gt %s' with FILTERS." args)
+     (seq-filter (##and (member % filters) %)
+                 (transient-args (intern (format "magit-gt-%s" ,args))))))
 ;; Interactive functions
 ;;;###autoload (autoload 'magit-gt "magit-gt-core-local" nil t)
 (transient-define-prefix magit-gt-core-local ()
@@ -234,6 +238,8 @@ newline, return an empty string."
    ("c" magit-gt-create)
    ("m" magit-gt-modify)])
 
+(magit-gt-args "core-local")
+
 ;;;###autoload (autoload 'magit-gt-modify "magit-gt" nil t)
 (transient-define-suffix magit-gt-modify (args)
   "Modify the current branch by amending its commit or creating a new commit. Automatically restacks descendants.
@@ -243,7 +249,7 @@ If you have any unstaged changes, you will be asked whether you'd like to stage 
                         [--update] [--edit]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify" "--commit" "--all" "--edit")))
+    (magit-gt-core-local-arguments "--no-verify" "--commit" "--all" "--edit")))
   (cond ((member "--commit" args)
          (magit-gt-run-gt-with-editor "modify" args))
         (t (magit-gt-run-gt "modify" args))))
@@ -256,7 +262,7 @@ If you have any unstaged changes, you will be asked whether you'd like to stage 
                         [--insert]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify" "--all" "--update" "--insert")))
+    (magit-gt-core-local-arguments "--no-verify" "--all" "--update" "--insert")))
   ;;TODO magit-commit-assert type vibe
   (let ((default-directory (magit-toplevel)))
     (magit-gt-run-gt-with-editor "create" (append '("-m") args )))
@@ -281,6 +287,8 @@ If you have any unstaged changes, you will be asked whether you'd like to stage 
    ("s" magit-gt-submit)
    ("f" magit-gt-sync)])
 
+(magit-gt-args "core-remote")
+
 ;;;autoload (autoload 'magit-gt-submit "magit-gt" nil t)
 (transient-define-suffix magit-gt-submit (args)
   "Idempotently force push all branches from trunk to the current branch to GitHub, creating or updating distinct
@@ -292,9 +300,9 @@ are conflicts."
                         [--view] [--stack]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify" "--draft" "--publish" "--update-only"
-                        "--merge-when-ready" "--rerequest-reviews" "--view"
-                        "--stack")))
+    (magit-gt-core-remote-arguments "--no-verify" "--draft" "--publish" "--update-only"
+                                    "--merge-when-ready" "--rerequest-reviews" "--view"
+                                    "--stack")))
   (magit-gt-run-gt-async "submit" args))
 
 
@@ -306,7 +314,7 @@ are conflicts."
                         [--force] [--all]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify" "--no-restack" "--force" "--all")))
+    (magit-gt-core-remote-arguments "--no-verify" "--no-restack" "--force" "--all")))
   (magit-gt-run-gt "sync" args))
 
 ;;;autoload (autoload 'magit-gt "magit-gt-navigation" nil t)
@@ -332,7 +340,7 @@ are conflicts."
   :description "Up             gt up [--no-verify]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify")))
+    (magit-gt-core-remote-arguments "--no-verify")))
   (magit-gt-run-gt "up" args))
 
 ;;;###autoload (autoload 'magit-gt-down "magit-gt" nil t)
@@ -342,7 +350,7 @@ are conflicts."
   :description "Down           gt down [--no-verify]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify")))
+    (magit-gt-core-remote-arguments "--no-verify")))
   (magit-gt-run-gt "down" args))
 
 ;;;autoload (autoload 'magit-gt-checkout "magit-gt" nil t)
@@ -364,7 +372,7 @@ are conflicts."
   :description "Top            gt top [--no-verify]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify")))
+    (magit-gt-core-remote-arguments "--no-verify")))
   (magit-gt-run-gt "top" args))
 
 ;;;###autoload (autoload 'magit-gt-top "magit-gt" nil t)
@@ -374,7 +382,7 @@ are conflicts."
   :description "Bottom         gt bottom [--no-verify]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify")))
+    (magit-gt-core-remote-arguments "--no-verify")))
   (magit-gt-run-gt "bottom" args))
 
 ;;;autoload (autoload 'magit-gt "magit-gt-stack-management" nil t)
@@ -397,6 +405,8 @@ are conflicts."
    ("R" magit-gt-reorder)
    ("r" magit-gt-restack)])
 
+(magit-gt-args "stack-management")
+
 ;;;###autoload (autoload 'magit-gt-absorb "magit-gt" nil t)
 (transient-define-suffix magit-gt-absorb (args)
   "Amend staged changes to the relevant commits in the current stack."
@@ -404,7 +414,7 @@ are conflicts."
   :description "Absorb         gt absorb [--no-verify] [--force] [--all]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify" "--force" "--all")))
+    (magit-gt-stack-management-arguments "--no-verify" "--force" "--all")))
   (magit-gt-run-gt "absorb" args))
 
 ;;;###autoload (autoload 'magit-gt-continue "magit-gt" nil t)
@@ -414,7 +424,7 @@ are conflicts."
   :description "Continue       gt continue [--no-verify] [--all]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify" "--all")))
+    (magit-gt-stack-management-arguments "--no-verify" "--all")))
   (magit-gt-run-gt "continue" args))
 
 ;;;###autoload (autoload 'magit-gt-fold "magit-gt" nil t)
@@ -425,7 +435,7 @@ restack."
   :description "Fold           gt fold [--no-verify] [--keep]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify" "--keep")))
+    (magit-gt-stack-management-arguments "--no-verify" "--keep")))
   (magit-gt-run-gt "fold" args))
 
 ;;;###autoload (autoload 'magit-gt-reorder "magit-gt" nil t)
@@ -435,7 +445,7 @@ restack."
   :description "Reorder        gt reorder [--no-verify]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify")))
+    (magit-gt-stack-management-arguments "--no-verify")))
   (magit-gt-run-gt-with-editor "reorder" args)
   (magit-refresh))
 
@@ -447,7 +457,7 @@ restack."
                         [--upstack] [--only]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify" "--downstack" "--upstack" "--only")))
+    (magit-gt-stack-management-arguments "--no-verify" "--downstack" "--upstack" "--only")))
   ;; TODO? interactive rebase a la magit
   (magit-gt-run-gt "restack" args))
 
@@ -476,6 +486,8 @@ restack."
    ;; TODO? gt unlink
    ("u" magit-gt-untrack)])
 
+(magit-gt-args "branch-management")
+
 ;;;###autoload (autoload 'magit-gt-abort "magit-gt" nil t)
 (transient-define-suffix magit-gt-abort (args)
   "Abort the current Graphite command."
@@ -483,7 +495,7 @@ restack."
   :description "Abort          gt abort [--no-verify]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify")))
+    (magit-gt-branch-management-arguments "--no-verify")))
   (magit-gt-run-gt "abort" (append '("-f") args)))
 
 ;;;###autoload (autoload 'magit-gt-delete "magit-gt" nil t)
@@ -493,7 +505,7 @@ restack."
   :description "Delete         gt delete [--no-verify] [--force]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify" "--force")
+    (magit-gt-branch-management-arguments "--no-verify" "--force")
     (magit-completing-read "Delete branch" (magit-gt--get-branches) nil t)))
   (magit-gt-run-gt-async "delete" (append args (list branch))))
 
@@ -505,7 +517,7 @@ restack."
                         [--no-restack]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify" "--force" "--downstack" "--no-restack")
+    (magit-gt-branch-management-arguments "--no-verify" "--force" "--downstack" "--no-restack")
     (magit-completing-read "Get branch" (magit-gt--get-branches) nil t nil nil (magit-get-current-branch))))
   (magit-gt-run-gt "get" args))
 
@@ -516,7 +528,7 @@ restack."
   :description "Pop            gt pop [--no-verify]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify")))
+    (magit-gt-branch-management-arguments "--no-verify")))
   (magit-gt-run-gt "pop" args))
 
 ;;;###autoload (autoload 'magit-gt-rename "magit-gt" nil t)
@@ -526,7 +538,7 @@ restack."
   :description "Rename         gt rename [--no-verify]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify")
+    (magit-gt-branch-management-arguments "--no-verify")
     (magit-completing-read "Rename branch" (magit-gt--get-branches) nil t)))
   (magit-gt-run-gt "rename" (append args (list new-branch))))
 
@@ -537,7 +549,7 @@ restack."
   :description "Squash         gt squash [--no-verify] [--no-edit]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify" "--no-edit")))
+    (magit-gt-branch-management-arguments "--no-verify" "--no-edit")))
   (cond ((member "--no-edit" args)
          (magit-gt-run-gt "squash" args))
         (t (magit-gt-run-gt-with-editor "squash" (append '("-m") args)))))
@@ -549,7 +561,7 @@ restack."
   :description "Track          gt track [--no-verify]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify")
+    (magit-gt-branch-management-arguments "--no-verify")
     (magit-completing-read "Track branch" (magit-gt--get-branches) nil t nil nil (magit-get-current-branch))))
   ;;TODO --parent
   (magit-gt-run-gt "track" (append '("-f") args (list branch))))
@@ -562,7 +574,7 @@ restack."
   :description "Undo           gt undo [--no-verify]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify")))
+    (magit-gt-branch-management-arguments "--no-verify")))
   (magit-gt-run-gt "undo" (append '("-f") args)))
 
 ;;;###autoload (autoload 'magit-gt-untrack "magit-gt" nil t)
@@ -572,7 +584,7 @@ restack."
   :description "Untrack        gt untrack [--no-verify]"
   (interactive
    (list
-    (magit-gt-arguments "--no-verify")
+    (magit-gt-branch-management-arguments "--no-verify")
     (magit-completing-read "Untrack branch" (magit-gt--get-branches) nil t)))
   (magit-gt-run-gt-async "untrack" (append '("-f") args (list branch))))
 
@@ -587,6 +599,8 @@ restack."
    ("m" magit-gt-merge)
    ("p" magit-gt-pr)])
 
+(magit-gt-args "web")
+
 ;;;###autoload (autoload 'magit-gt-dash "magit-gt" nil t)
 (transient-define-suffix magit-gt-dash (args)
   "Open the Graphite dashboard in the browser."
@@ -594,7 +608,7 @@ restack."
   :description "Dash           gt dash"
   (interactive
    (list
-    (magit-gt-arguments)))
+    (magit-gt-web-arguments)))
   (magit-gt-run-gt-async "dash" args))
 
 ;;;###autoload (autoload 'magit-gt-merge "magit-gt" nil t)
@@ -604,7 +618,7 @@ restack."
   :description "Merge          gt merge"
   (interactive
    (list
-    (magit-gt-arguments)))
+    (magit-gt-web-arguments)))
   (magit-gt-run-gt-async "merge" args))
 
 ;;;###autoload (autoload 'magit-gt-pr "magit-gt" nil t)
@@ -614,7 +628,7 @@ restack."
   :description "PR             gt pr"
   (interactive
    (list
-    (magit-gt-arguments)
+    (magit-gt-web-arguments)
     (magit-completing-read "Pull request branch" (magit-gt--get-branches) nil t nil nil (magit-get-current-branch))))
   (magit-gt-run-gt-async "pr" (append args (list branch))))
 
