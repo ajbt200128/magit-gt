@@ -66,12 +66,44 @@ ensure unix eol conversion."
          nil destination nil
          (magit-gt-process-gt-arguments args)))
 
+(defun magit-gt-call-gt (&rest args)
+  "Call Gt synchronously in a separate process.
+
+Function `magit-gt-executable' specifies the Git executable and
+option `magit-gt-global-arguments' specifies constant arguments.
+The arguments ARGS specify arguments to Git, they are flattened
+before use.
+
+Process output goes into a new section in the buffer returned by
+`magit-process-buffer'."
+  (run-hooks 'magit-pre-call-git-hook)
+  (let ((default-process-coding-system (magit--process-coding-system)))
+    (apply #'magit-call-process
+           magit-gt-executable
+           (magit-gt-process-gt-arguments args))))
 (defun magit-gt-start-gt (input &rest args)
   "Start a new `gt' process with INPUT and ARGS."
   (run-hooks 'magit-pre-start-git-hook)
   (let ((default-process-coding-system (magit--process-coding-system)))
     (apply #'magit-start-process magit-gt-executable input
            (magit-gt-process-gt-arguments args))))
+
+(defun magit-gt-run-gt (&rest args)
+  "Call Gt synchronously in a separate process, and refresh.
+
+Function `magit-gt-executable' specifies the Git executable and
+option `magit-gt-global-arguments' specifies constant arguments.
+The arguments ARGS specify arguments to Git, they are flattened
+before use.
+
+After Gt returns, the current buffer (if it is a Magit buffer)
+as well as the current repository's status buffer are refreshed.
+
+Process output goes into a new section in the buffer returned by
+`magit-process-buffer'."
+  (let ((magit--refresh-cache (list (cons 0 0))))
+    (prog1 (magit-gt-call-gt args)
+      (magit-refresh))))
 
 (defun magit-gt-run-gt-async (&rest args)
   "Run `gt' asynchronously with ARGS."
@@ -214,8 +246,7 @@ If you have any unstaged changes, you will be asked whether you'd like to stage 
     (magit-gt-arguments "--no-verify" "--commit" "--all" "--edit")))
   (cond ((member "--commit" args)
          (magit-gt-run-gt-with-editor "modify" args))
-        (t (magit-gt-run-gt-async "modify" args)))
-  (magit-refresh))
+        (t (magit-gt-run-gt "modify" args))))
 
 ;;;###autoload (autoload 'magit-gt-create "magit-gt" nil t)
 (transient-define-suffix magit-gt-create (args)
@@ -276,8 +307,7 @@ are conflicts."
   (interactive
    (list
     (magit-gt-arguments "--no-verify" "--no-restack" "--force" "--all")))
-  (magit-gt-run-gt-async "sync" args)
-  (magit-refresh))
+  (magit-gt-run-gt "sync" args))
 
 ;;;autoload (autoload 'magit-gt "magit-gt-navigation" nil t)
 (transient-define-prefix magit-gt-navigation ()
@@ -303,8 +333,7 @@ are conflicts."
   (interactive
    (list
     (magit-gt-arguments "--no-verify")))
-  (magit-gt-run-gt-async "up" args)
-  (magit-refresh))
+  (magit-gt-run-gt "up" args))
 
 ;;;###autoload (autoload 'magit-gt-down "magit-gt" nil t)
 (transient-define-suffix magit-gt-down (args)
@@ -314,8 +343,7 @@ are conflicts."
   (interactive
    (list
     (magit-gt-arguments "--no-verify")))
-  (magit-gt-run-gt-async "down" args)
-  (magit-refresh))
+  (magit-gt-run-gt "down" args))
 
 ;;;autoload (autoload 'magit-gt-checkout "magit-gt" nil t)
 (transient-define-suffix magit-gt-checkout (branch)
@@ -337,8 +365,7 @@ are conflicts."
   (interactive
    (list
     (magit-gt-arguments "--no-verify")))
-  (magit-gt-run-gt-async "top" args)
-  (magit-refresh))
+  (magit-gt-run-gt "top" args))
 
 ;;;###autoload (autoload 'magit-gt-top "magit-gt" nil t)
 (transient-define-suffix magit-gt-bottom (args)
@@ -348,8 +375,7 @@ are conflicts."
   (interactive
    (list
     (magit-gt-arguments "--no-verify")))
-  (magit-gt-run-gt-async "bottom" args)
-  (magit-refresh))
+  (magit-gt-run-gt "bottom" args))
 
 ;;;autoload (autoload 'magit-gt "magit-gt-stack-management" nil t)
 (transient-define-prefix magit-gt-stack-management ()
@@ -379,8 +405,7 @@ are conflicts."
   (interactive
    (list
     (magit-gt-arguments "--no-verify" "--force" "--all")))
-  (magit-gt-run-gt-async "absorb" args)
-  (magit-refresh))
+  (magit-gt-run-gt "absorb" args))
 
 ;;;###autoload (autoload 'magit-gt-continue "magit-gt" nil t)
 (transient-define-suffix magit-gt-continue (args)
@@ -390,8 +415,7 @@ are conflicts."
   (interactive
    (list
     (magit-gt-arguments "--no-verify" "--all")))
-  (magit-gt-run-gt-async "continue" args)
-  (magit-refresh))
+  (magit-gt-run-gt "continue" args))
 
 ;;;###autoload (autoload 'magit-gt-fold "magit-gt" nil t)
 (transient-define-suffix magit-gt-fold (args)
@@ -402,8 +426,7 @@ restack."
   (interactive
    (list
     (magit-gt-arguments "--no-verify" "--keep")))
-  (magit-gt-run-gt-async "fold" args)
-  (magit-refresh))
+  (magit-gt-run-gt "fold" args))
 
 ;;;###autoload (autoload 'magit-gt-reorder "magit-gt" nil t)
 (transient-define-suffix magit-gt-reorder (args)
@@ -426,8 +449,7 @@ restack."
    (list
     (magit-gt-arguments "--no-verify" "--downstack" "--upstack" "--only")))
   ;; TODO? interactive rebase a la magit
-  (magit-gt-run-gt-async "restack" args)
-  (magit-refresh))
+  (magit-gt-run-gt "restack" args))
 
 ;;;autoload (autoload 'magit-gt "magit-gt-branch-management" nil t)
 (transient-define-prefix magit-gt-branch-management ()
@@ -462,7 +484,7 @@ restack."
   (interactive
    (list
     (magit-gt-arguments "--no-verify")))
-  (magit-gt-run-gt-async "abort" (append '("-f") args)))
+  (magit-gt-run-gt "abort" (append '("-f") args)))
 
 ;;;###autoload (autoload 'magit-gt-delete "magit-gt" nil t)
 (transient-define-suffix magit-gt-delete (args branch)
@@ -485,8 +507,7 @@ restack."
    (list
     (magit-gt-arguments "--no-verify" "--force" "--downstack" "--no-restack")
     (magit-completing-read "Get branch" (magit-gt--get-branches) nil t nil nil (magit-get-current-branch))))
-  (magit-gt-run-gt-async "get" args)
-  (magit-refresh))
+  (magit-gt-run-gt "get" args))
 
 ;;;###autoload (autoload magit-gt-pop "magit-gt" nil t)
 (transient-define-suffix magit-gt-pop (args)
@@ -496,7 +517,7 @@ restack."
   (interactive
    (list
     (magit-gt-arguments "--no-verify")))
-  (magit-gt-run-gt-async "pop" args))
+  (magit-gt-run-gt "pop" args))
 
 ;;;###autoload (autoload 'magit-gt-rename "magit-gt" nil t)
 (transient-define-suffix magit-gt-rename (args new-branch)
@@ -507,8 +528,7 @@ restack."
    (list
     (magit-gt-arguments "--no-verify")
     (magit-completing-read "Rename branch" (magit-gt--get-branches) nil t)))
-  (magit-gt-run-gt-async "rename" (append args (list new-branch)))
-  (magit-refresh))
+  (magit-gt-run-gt "rename" (append args (list new-branch))))
 
 ;;;###autoload (autoload 'magit-gt-squash "magit-gt" nil t)
 (transient-define-suffix magit-gt-squash (args)
@@ -519,9 +539,8 @@ restack."
    (list
     (magit-gt-arguments "--no-verify" "--no-edit")))
   (cond ((member "--no-edit" args)
-         (magit-gt-run-gt-async "squash" args))
-        (t (magit-gt-run-gt-with-editor "squash" (append '("-m") args))))
-  (magit-refresh))
+         (magit-gt-run-gt "squash" args))
+        (t (magit-gt-run-gt-with-editor "squash" (append '("-m") args)))))
 
 ;;;###autoload (autoload 'magit-gt-track "magit-gt" nil t)
 (transient-define-suffix magit-gt-track (args branch)
@@ -533,8 +552,7 @@ restack."
     (magit-gt-arguments "--no-verify")
     (magit-completing-read "Track branch" (magit-gt--get-branches) nil t nil nil (magit-get-current-branch))))
   ;;TODO --parent
-  (magit-gt-run-gt-async "track" (append '("-f") args (list branch)))
-  (magit-refresh))
+  (magit-gt-run-gt "track" (append '("-f") args (list branch))))
 
 
 ;;;###autoload (autoload 'magit-gt-undo "magit-gt" nil t)
@@ -545,7 +563,7 @@ restack."
   (interactive
    (list
     (magit-gt-arguments "--no-verify")))
-  (magit-gt-run-gt-async "undo" (append '("-f") args)))
+  (magit-gt-run-gt "undo" (append '("-f") args)))
 
 ;;;###autoload (autoload 'magit-gt-untrack "magit-gt" nil t)
 (transient-define-suffix magit-gt-untrack (args branch)
@@ -581,7 +599,7 @@ restack."
 
 ;;;###autoload (autoload 'magit-gt-merge "magit-gt" nil t)
 (transient-define-suffix magit-gt-merge (args)
-  "Open the Graphite merge page in the browser."
+  "Merge the pull requests associated with all branches from trunk to the current branch via Graphite."
   :class 'magit-gt--suffix
   :description "Merge          gt merge"
   (interactive
