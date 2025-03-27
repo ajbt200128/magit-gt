@@ -303,7 +303,7 @@ are conflicts."
   "Sync all branches with remote, prompting to delete any branches for PRs that have been merged or closed."
   :class 'magit-gt--suffix
   :description "Sync           gt sync [--no-verify] [--no-restack]
-[--force] [--all]"
+                        [--force] [--all]"
   (interactive
    (list
     (magit-gt-arguments "--no-verify" "--no-restack" "--force" "--all")))
