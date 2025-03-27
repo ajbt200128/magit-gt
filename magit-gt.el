@@ -615,7 +615,7 @@ restack."
   (interactive
    (list
     (magit-gt-arguments)
-    (magit-completing-read "Pull request branch" (magit-gt--get-branches) nil t)))
+    (magit-completing-read "Pull request branch" (magit-gt--get-branches) nil t nil nil (magit-get-current-branch))))
   (magit-gt-run-gt-async "pr" (append args (list branch))))
 
 ;;;###autoload (autoload 'magit-gt "magit-gt" nil t)
