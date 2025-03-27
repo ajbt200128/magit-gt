@@ -592,7 +592,7 @@ restack."
 (transient-define-prefix magit-gt-web ()
   "Invoke Graphite's web workflows"
   ["Arguments"
-   ("-s" "Open the stack page" "--stack")
+   ("-s" "Open the stack page" ("-s" "--stack"))
    ]
   ["Actions"
    ("d" magit-gt-dash)
@@ -625,10 +625,10 @@ restack."
 (transient-define-suffix magit-gt-pr (args branch)
   "Open the Graphite pull request page in the browser."
   :class 'magit-gt--suffix
-  :description "PR             gt pr"
+  :description "PR             gt pr [--stack]"
   (interactive
    (list
-    (magit-gt-web-arguments)
+    (magit-gt-web-arguments "--stack")
     (magit-completing-read "Pull request branch" (magit-gt--get-branches) nil t nil nil (magit-get-current-branch))))
   (magit-gt-run-gt-async "pr" (append args (list branch))))
 
