@@ -592,8 +592,7 @@ restack."
 (transient-define-prefix magit-gt-web ()
   "Invoke Graphite's web workflows"
   ["Arguments"
-   ("-s" "Open the stack page" ("-s" "--stack"))
-   ]
+   ("-s" "Open the stack page" ("-s" "--stack"))]
   ["Actions"
    ("d" magit-gt-dash)
    ("m" magit-gt-merge)
@@ -641,7 +640,25 @@ restack."
    ("n" "Navigation" magit-gt-navigation)
    ("s" "Stack management" magit-gt-stack-management)
    ("b" "Branch management" magit-gt-branch-management)
-   ("w" "Web views" magit-gt-web)])
+   ("w" "Web views" magit-gt-web)]
+  ["Shortcuts"
+   ("m" "Modify and submit" magit-gt-modify-and-submit)
+   ("c" "Create and submit" magit-gt-create-and-submit)
+   ])
+
+;;;###autoload (autoload 'magit-gt "magit-gt-modify-and-submit" nil t)
+(defun magit-gt-modify-and-submit ()
+  "Modify the current branch and submit it."
+  (interactive)
+  (magit-gt-modify '())
+  (magit-gt-submit '()))
+
+;;;###autoload (autoload 'magit-gt "magit-gt-create-and-submit" nil t)
+(defun magit-gt-create-and-submit ()
+  "Create a new branch and submit it."
+  (interactive)
+  (magit-gt-create '())
+  (magit-gt-submit '()))
 
 (provide 'magit-gt)
 ;;; magit-gt.el ends here
