@@ -521,7 +521,7 @@ restack."
     (magit-completing-read "Get branch" (magit-gt--get-branches) nil t nil nil (magit-get-current-branch))))
   (magit-gt-run-gt "get" args))
 
-;;;###autoload (autoload magit-gt-pop "magit-gt" nil t)
+;;;###autoload (autoload 'magit-gt-pop "magit-gt" nil t)
 (transient-define-suffix magit-gt-pop (args)
   "Delete the current branch but retain the state of files in the working tree."
   :class 'magit-gt--suffix
