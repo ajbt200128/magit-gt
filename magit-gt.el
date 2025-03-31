@@ -196,7 +196,33 @@ newline, return an empty string."
   (let* ((branches-alist (magit-gt-json "state")))
     (mapcar 'car branches-alist)))
 
+(defun magit-gt--modify (&optional args)
+  "Call gt modify with ARGS"
+  (cond ((member "--commit" args)
+         (magit-gt-run-gt-with-editor "modify" args))
+        (t (magit-gt-run-gt "modify" args))))
 
+(defun magit-gt--create (&optional args)
+  "Call gt create with ARGS"
+  ;;TODO magit-commit-assert type vibe
+  (magit-with-toplevel
+    (magit-gt-run-gt-with-editor "create" (append '("-m") args ))))
+
+(defun magit-gt--submit (&optional args)
+  "Call gt submit with ARGS"
+  (magit-gt-run-gt-async "submit" args))
+
+
+(defun magit-gt--submit-sentinel (&optional args)
+  (set-process-sentinel
+   magit-this-process
+   (lambda (process event)
+     (when (memq (process-status process) '(exit signal))
+       (if (> (process-exit-status process) 0)
+           (magit-process-sentinel process event)
+         (process-put process 'inhibit-refresh t)
+         (magit-process-sentinel process event)
+         (magit-gt--submit args))))))
 ;; Classes
 (defclass magit-gt--suffix (transient-suffix)
   ())
@@ -250,9 +276,7 @@ If you have any unstaged changes, you will be asked whether you'd like to stage 
   (interactive
    (list
     (magit-gt-core-local-arguments "--no-verify" "--commit" "--all" "--edit")))
-  (cond ((member "--commit" args)
-         (magit-gt-run-gt-with-editor "modify" args))
-        (t (magit-gt-run-gt "modify" args))))
+  (magit-gt--modify args))
 
 ;;;###autoload (autoload 'magit-gt-create "magit-gt" nil t)
 (transient-define-suffix magit-gt-create (args)
@@ -263,10 +287,7 @@ If you have any unstaged changes, you will be asked whether you'd like to stage 
   (interactive
    (list
     (magit-gt-core-local-arguments "--no-verify" "--all" "--update" "--insert")))
-  ;;TODO magit-commit-assert type vibe
-  (let ((default-directory (magit-toplevel)))
-    (magit-gt-run-gt-with-editor "create" (append '("-m") args )))
-  (magit-refresh))
+  (magit-gt--create args))
 
 ;;;autoload (autoload 'magit-gt "magit-gt-core-remote" nil t)
 (transient-define-prefix magit-gt-core-remote ()
@@ -303,19 +324,19 @@ are conflicts."
     (magit-gt-core-remote-arguments "--no-verify" "--draft" "--publish" "--update-only"
                                     "--merge-when-ready" "--rerequest-reviews" "--view"
                                     "--stack")))
-  (magit-gt-run-gt-async "submit" args))
+  (magit-gt--submit args))
 
 
 ;;;###autoload (autoload 'magit-gt-sync "magit-gt" nil t)
 (transient-define-suffix magit-gt-sync (args)
-  "Sync all branches with remote, prompting to delete any branches for PRs that have been merged or closed."
+  "Sync all branches with remote"
   :class 'magit-gt--suffix
   :description "Sync           gt sync [--no-verify] [--no-restack]
                         [--force] [--all]"
   (interactive
    (list
     (magit-gt-core-remote-arguments "--no-verify" "--no-restack" "--force" "--all")))
-  (magit-gt-run-gt "sync" args))
+  (magit-gt-run-gt-async "sync" args))
 
 ;;;autoload (autoload 'magit-gt "magit-gt-navigation" nil t)
 (transient-define-prefix magit-gt-navigation ()
@@ -650,15 +671,15 @@ restack."
 (defun magit-gt-modify-and-submit ()
   "Modify the current branch and submit it."
   (interactive)
-  (magit-gt-modify '())
-  (magit-gt-submit '()))
+  (magit-gt--modify)
+  (magit-gt--submit))
 
 ;;;###autoload (autoload 'magit-gt "magit-gt-create-and-submit" nil t)
 (defun magit-gt-create-and-submit ()
   "Create a new branch and submit it."
   (interactive)
-  (magit-gt-create '())
-  (magit-gt-submit '()))
+  (magit-gt--create)
+  (magit-gt--submit-sentinel))
 
 (provide 'magit-gt)
 ;;; magit-gt.el ends here
