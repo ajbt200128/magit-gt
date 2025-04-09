@@ -200,7 +200,7 @@ newline, return an empty string."
   "Call gt modify with ARGS"
   (cond ((member "--commit" args)
          (magit-gt-run-gt-with-editor "modify" args))
-        (t (magit-gt-run-gt "modify" args))))
+        (t (magit-gt-run-gt-async "modify" args))))
 
 (defun magit-gt--create (&optional args)
   "Call gt create with ARGS"
@@ -212,8 +212,8 @@ newline, return an empty string."
   "Call gt submit with ARGS"
   (magit-gt-run-gt-async "submit" args))
 
-
-(defun magit-gt--submit-sentinel (&optional args)
+(defun magit-gt--sentinel (fun &optional args)
+  "Call FUN with ARGS asynchronously and block until prev magit process is done."
   (set-process-sentinel
    magit-this-process
    (lambda (process event)
@@ -222,7 +222,12 @@ newline, return an empty string."
            (magit-process-sentinel process event)
          (process-put process 'inhibit-refresh t)
          (magit-process-sentinel process event)
-         (magit-gt--submit args))))))
+         (apply fun args))))))
+
+(defun magit-gt--submit-sentinel (&optional args)
+  "Call magit-gt--submit with ARGS async and wait until done."
+  (magit-gt--sentinel 'magit-gt--submit args))
+
 ;; Classes
 (defclass magit-gt--suffix (transient-suffix)
   ())
@@ -423,8 +428,8 @@ are conflicts."
    ("c" magit-gt-continue)
    ("f" magit-gt-fold)
    ;; TODO gt move
-   ("R" magit-gt-reorder)
-   ("r" magit-gt-restack)])
+   ("r" magit-gt-reorder)
+   ("R" magit-gt-restack)])
 
 (magit-gt-args "stack-management")
 
@@ -467,8 +472,7 @@ restack."
   (interactive
    (list
     (magit-gt-stack-management-arguments "--no-verify")))
-  (magit-gt-run-gt-with-editor "reorder" args)
-  (magit-refresh))
+  (magit-gt-run-gt-with-editor "reorder" args))
 
 ;;;###autoload (autoload 'magit-gt-restack "magit-gt" nil t)
 (transient-define-suffix magit-gt-restack (args)
@@ -672,7 +676,7 @@ restack."
   "Modify the current branch and submit it."
   (interactive)
   (magit-gt--modify)
-  (magit-gt--submit))
+  (magit-gt--submit-sentinel))
 
 ;;;###autoload (autoload 'magit-gt "magit-gt-create-and-submit" nil t)
 (defun magit-gt-create-and-submit ()
